@@ -43,7 +43,8 @@
     .project.dragging { opacity: 0.8; transform: scale(1.05); box-shadow: 0 3px 6px rgba(0,0,0,0.2); }
     .schedule { 
       display: grid; 
-      grid-template-columns: 10% repeat(16, 5.6%);
+      /* 1 列员工 + 15 时间列（已移除末尾 11:00）*/
+      grid-template-columns: 10% repeat(15, 6%);
       grid-auto-rows: minmax(60px, auto); 
       gap: 2px; 
       width: 100%; 
@@ -87,7 +88,7 @@
     @media (max-width: 768px) {
       .schedule-container { flex-direction: column; }
       .projects-sidebar { width: 100%; }
-      .schedule { grid-template-columns: 15% repeat(16, 5.3%); }
+      .schedule { grid-template-columns: 15% repeat(15, 5.5%); }
       .project, .assigned-project, .employee-name { font-size: 18px; }
       .header-bar { flex-direction: column; align-items: flex-start; }
       h2 { margin-top: 10px; }
@@ -129,12 +130,15 @@
 
       todayDate.innerText = '日期：' + new Date().toLocaleDateString('zh-CN');
 
+      // 末尾的 11:00 已被移除 — 这是现在的时间列（共 15 列）
       const hours = [
-        '8:30','9:30','10:30','12:00','1:00','2:00','3:00',
-        '4:00','5:00','5:30','6:00','7:00','8:00','9:00','10:00','11:00'
+        '8:30','9:30','10:30','11:30','12:00','1:00','2:00','3:00',
+        '4:00','5:00','5:30','6:00','7:00','8:00','9:00','10:00'
       ];
 
-      const breakCols = [3, 9];
+      // 保持原本的休息索引（基于原始时段位置）：第 5 列 (index=4) 与第 11 列 (index=10)
+      // 这些索引在移除末尾 11:00 后仍然指向你想要的中间休息列位置
+      const breakCols = [4, 10];
 
       const emptyHeader = document.createElement('div');
       emptyHeader.className = 'header';
@@ -148,15 +152,17 @@
         schedule.appendChild(th);
       });
 
+      // 删除 Zin Win，保留 emp3 的 Azim（不保留 emp10）
       const employees = [
         { id: 'emp1', name: 'Albert' },
         { id: 'emp2', name: 'Aung Thant' },
-        { id: 'emp3', name: 'Azim' },
+        { id: 'emp3', name: 'Azim' },       // 保留这个
         { id: 'emp4', name: 'William' },
         { id: 'emp5', name: 'Myo' },
         { id: 'emp7', name: 'Wai Phyo' },
         { id: 'emp8', name: 'Luna' },
         { id: 'emp9', name: 'Terrence' },
+        { id: 'emp10', name: 'Yu Jun' },
         { id: 'emp11', name: 'Bunyao' },
         { id: 'emp12', name: 'Matthew' }
       ];
@@ -172,10 +178,12 @@
           cell.className = 'cell';
           cell.dataset.row = rowIndex;
           cell.dataset.col = colIndex;
+
           if (breakCols.includes(colIndex)) {
             cell.classList.add('break');
             cell.innerText = '休息';
           }
+
           schedule.appendChild(cell);
         });
       });
