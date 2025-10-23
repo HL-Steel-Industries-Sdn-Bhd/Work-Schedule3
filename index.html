@@ -15,6 +15,7 @@
       font-size: 20px;
     }
 
+    /* ✅ 日期 + 标题 同一行 */
     .header-bar {
       display: flex;
       align-items: center;
@@ -69,7 +70,7 @@
 
     .schedule {
       display: grid;
-      grid-template-columns: 10% repeat(16, 5.6%);
+      grid-template-columns: 10% repeat(17, 5.3%);
       grid-auto-rows: minmax(60px, auto);
       gap: 2px;
       width: 100%;
@@ -166,7 +167,7 @@
     @media (max-width: 768px) {
       .schedule-container { flex-direction: column; }
       .projects-sidebar { width: 100%; }
-      .schedule { grid-template-columns: 15% repeat(16, 5.3%); }
+      .schedule { grid-template-columns: 15% repeat(17, 5%); }
       .project, .assigned-project, .employee-name { font-size: 18px; }
       .header-bar { flex-direction: column; align-items: flex-start; }
       h2 { margin-top: 10px; }
@@ -210,10 +211,9 @@
     const today = new Date();
     todayDate.innerText = '日期：' + today.toLocaleDateString('zh-CN');
 
-    // ✅ 删除最后一个 "11:00"
     const hours = [
       '8:30','9:30','10:30','11:30','12:00','1:00','2:00','3:00',
-      '4:00','5:00','5:30','6:00','7:00','8:00','9:00','10:00'
+      '4:00','5:00','5:30','6:00','7:00','8:00','9:00','10:00','11:00'
     ];
     const breakCols = [4, 10];
 
@@ -229,7 +229,6 @@
       schedule.appendChild(th);
     });
 
-    // ✅ 第二个 Azim 改为 Yu Jun
     const employees = [
       { id: 'emp1', name: 'Albert' },
       { id: 'emp2', name: 'Aung Thant' },
@@ -240,13 +239,256 @@
       { id: 'emp7', name: 'Wai Phyo' },
       { id: 'emp8', name: 'Luna' },
       { id: 'emp9', name: 'Terrence' },
-      { id: 'emp10', name: 'Yu Jun' },
+      { id: 'emp10', name: 'Azim' },
       { id: 'emp11', name: 'Bunyao' },
       { id: 'emp12', name: 'Matthew' }
     ];
 
-    /* 下方JS逻辑完全相同，无需改动 */
-    // ...（保留你原本的JS逻辑）
+    employees.forEach((emp, rowIndex) => {
+      const empDiv = document.createElement('div');
+      empDiv.className = 'employee-name';
+      empDiv.innerText = emp.name;
+      schedule.appendChild(empDiv);
+
+      hours.forEach((hour, colIndex) => {
+        const cell = document.createElement('div');
+        cell.className = 'cell';
+        cell.dataset.row = rowIndex;
+        cell.dataset.col = colIndex;
+        if (breakCols.includes(colIndex)) {
+          cell.classList.add('break');
+          cell.innerText = '休息';
+        }
+        schedule.appendChild(cell);
+      });
+    });
+
+    const projects = [
+      { id: 'project1', name: 'Legoland-SO-004587-Item40-2units' },
+      { id: 'project2', name: 'Legoland-SO-004923-Item3-5units' },
+      { id: 'project3', name: 'Chefonic-SO-008942-Item20-50units' },
+      { id: 'project4', name: 'Chefonic-SO-007476-Item2-2units' },
+      { id: 'project5', name: 'Hero-SO-007476-Item32-3units' }
+    ];
+
+    const pastelColors = ['#FFB3BA', '#FFDFBA', '#FFFFBA', '#BAFFC9', '#BAE1FF', '#E0BBE4', '#C2F0FC'];
+    let soColorMap = {};
+    let colorIndex = 0;
+
+    projects.forEach(p => {
+      const soMatch = p.name.match(/SO-\d+/);
+      if (soMatch) {
+        const soNo = soMatch[0];
+        if (!soColorMap[soNo]) {
+          soColorMap[soNo] = pastelColors[colorIndex % pastelColors.length];
+          colorIndex++;
+        }
+      }
+    });
+
+    let selectedCell = null;
+    let dragInfo = null;
+
+    projects.forEach(project => {
+      const projectDiv = document.createElement('div');
+      projectDiv.className = 'project';
+      projectDiv.id = project.id;
+      projectDiv.innerText = project.name;
+
+      const soMatch = project.name.match(/SO-\d+/);
+      if (soMatch && soColorMap[soMatch[0]]) {
+        projectDiv.style.background = soColorMap[soMatch[0]];
+      }
+
+      projectDiv.setAttribute('draggable', 'true');
+      projectDiv.addEventListener('dragstart', function(e) {
+        if (!selectedCell || selectedCell.classList.contains('break')) {
+          e.preventDefault();
+          return;
+        }
+        dragInfo = { project: projectDiv, startCell: selectedCell, cells: [], projectId: project.id, projectName: project.name };
+        e.dataTransfer.setData('text/plain', e.target.id);
+        e.target.classList.add('dragging');
+      });
+
+      projectDiv.addEventListener('dragend', function() {
+        if (dragInfo && dragInfo.cells.length > 0) {
+          createMergedProject(dragInfo);
+          dragInfo = null;
+        }
+        this.classList.remove('dragging');
+      });
+
+      projectsContainer.appendChild(projectDiv);
+    });
+
+    const allCells = document.querySelectorAll('.cell');
+    allCells.forEach(cell => {
+      if (cell.classList.contains('break')) return;
+      cell.addEventListener('click', function() {
+        if (selectedCell) selectedCell.classList.remove('selected');
+        selectedCell = this;
+        this.classList.add('selected');
+      });
+
+      cell.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        if (dragInfo && selectedCell) {
+          highlightCells(selectedCell, this);
+        }
+      });
+
+      cell.addEventListener('dragleave', function() {
+        setTimeout(() => {
+          if (!isDraggingOverAnyCell()) clearHighlights();
+        }, 50);
+      });
+
+      cell.addEventListener('drop', function(e) {
+        e.preventDefault();
+        if (dragInfo && dragInfo.cells.length > 0) {
+          createMergedProject(dragInfo);
+          dragInfo = null;
+          if (selectedCell) {
+            selectedCell.classList.remove('selected');
+            selectedCell = null;
+          }
+        }
+        clearHighlights();
+      });
+    });
+
+    function isDraggingOverAnyCell() {
+      return Array.from(allCells).some(cell => cell.matches(':hover') || cell.querySelector(':hover'));
+    }
+
+    function createMergedProject(dragInfo) {
+      if (dragInfo.cells.length === 0) return;
+      dragInfo.cells.sort((a, b) => parseInt(a.dataset.col) - parseInt(b.dataset.col));
+      const row = dragInfo.cells[0].dataset.row;
+      const startCol = parseInt(dragInfo.cells[0].dataset.col);
+      const endCol = parseInt(dragInfo.cells[dragInfo.cells.length - 1].dataset.col);
+
+      dragInfo.cells.forEach(cell => {
+        const existing = cell.querySelector('.assigned-project');
+        if (existing) existing.remove();
+        cell.classList.remove('occupied');
+      });
+
+      document.querySelectorAll('.assigned-project.merged').forEach(el => {
+        const erow = el.dataset.row;
+        const est = parseInt(el.dataset.startCol);
+        const eet = parseInt(el.dataset.endCol);
+        if (String(erow) === String(row) && !(eet < startCol || est > endCol)) {
+          el.remove();
+        }
+      });
+
+      const merged = document.createElement('div');
+      merged.className = 'assigned-project merged';
+      merged.innerText = dragInfo.projectName;
+      merged.dataset.row = row;
+      merged.dataset.startCol = startCol;
+      merged.dataset.endCol = endCol;
+
+      const spanCount = endCol - startCol + 1;
+      let fontSize = Math.max(12, 16 + spanCount * 2);
+      if (spanCount === 1) {
+        fontSize = 14;
+        merged.style.whiteSpace = 'normal';
+        merged.style.wordBreak = 'break-word';
+        merged.style.textAlign = 'center';
+        merged.style.display = 'flex';
+        merged.style.flexDirection = 'column';
+        merged.style.alignItems = 'center';
+        merged.style.justifyContent = 'center';
+      } else {
+        merged.style.whiteSpace = 'nowrap';
+        merged.style.overflow = 'hidden';
+        merged.style.textOverflow = 'ellipsis';
+        merged.style.display = 'flex';
+        merged.style.alignItems = 'center';
+        merged.style.justifyContent = 'center';
+      }
+      merged.style.fontSize = fontSize + 'px';
+      merged.style.boxSizing = 'border-box';
+      merged.style.padding = '6px 8px';
+
+      const soMatch = dragInfo.projectName.match(/SO-\d+/);
+      if (soMatch && soColorMap[soMatch[0]]) {
+        merged.style.background = soColorMap[soMatch[0]];
+      }
+
+      const first = dragInfo.cells[0];
+      const last = dragInfo.cells[dragInfo.cells.length - 1];
+      const firstRect = first.getBoundingClientRect();
+      const lastRect = last.getBoundingClientRect();
+      const schedRect = schedule.getBoundingClientRect();
+
+      const rawLeft = firstRect.left - schedRect.left;
+      const rawWidth = lastRect.right - firstRect.left;
+      const top = firstRect.top - schedRect.top;
+      const height = firstRect.height;
+      const EXTRA = 4;
+      const leftAdj = Math.max(0, rawLeft - Math.ceil(EXTRA / 2));
+      const widthAdj = Math.max(20, rawWidth + EXTRA);
+
+      merged.style.left = leftAdj + 'px';
+      merged.style.width = widthAdj + 'px';
+      merged.style.top = top + 'px';
+      merged.style.height = height + 'px';
+
+      merged.addEventListener('click', e => {
+        e.stopPropagation();
+        removeMergedProject(merged);
+      });
+
+      schedule.appendChild(merged);
+      dragInfo.cells.forEach(c => c.classList.add('occupied'));
+
+      if (spanCount === 1) {
+        requestAnimationFrame(() => {
+          let fs = parseInt(window.getComputedStyle(merged).fontSize, 10) || 14;
+          const minFS = 10;
+          while (fs > minFS) {
+            if (merged.scrollHeight <= merged.clientHeight && merged.scrollWidth <= merged.clientWidth) break;
+            fs -= 1;
+            merged.style.fontSize = fs + 'px';
+          }
+        });
+      }
+    }
+
+    function removeMergedProject(el) {
+      if (!el) return;
+      const row = el.dataset.row;
+      const start = parseInt(el.dataset.startCol);
+      const end = parseInt(el.dataset.endCol);
+      for (let c = start; c <= end; c++) {
+        const cell = document.querySelector(`.cell[data-row="${row}"][data-col="${c}"]`);
+        if (cell) cell.classList.remove('occupied');
+      }
+      el.remove();
+    }
+
+    function highlightCells(startCell, endCell) {
+      clearHighlights();
+      if (!startCell || !endCell) return;
+      const row = startCell.dataset.row;
+      if (row !== endCell.dataset.row) return;
+      let start = parseInt(startCell.dataset.col);
+      let end = parseInt(endCell.dataset.col);
+      if (end < start) [start, end] = [end, start];
+      for (let c = start; c <= end; c++) {
+        const cell = document.querySelector(`.cell[data-row="${row}"][data-col="${c}"]`);
+        if (cell && !cell.classList.contains('break')) cell.classList.add('highlight');
+      }
+      dragInfo.cells = Array.from(document.querySelectorAll('.cell.highlight'));
+    }
+
+    function clearHighlights() {
+      document.querySelectorAll('.cell.highlight').forEach(cell => cell.classList.remove('highlight'));
+    }
   });
   </script>
 </body>
